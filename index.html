@@ -1,0 +1,125 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>BrickGift Studio</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='2' y='10' width='28' height='18' rx='3' fill='%23e3000b'/><rect x='7' y='5' width='7' height='6' rx='2' fill='%23e3000b'/><rect x='18' y='5' width='7' height='6' rx='2' fill='%23e3000b'/></svg>">
+<link rel="stylesheet" href="/src/style.css">
+<style id="page-css"></style>
+</head>
+<body>
+<header class="top">
+  <div class="brand"><span class="logo"></span>BrickGift Studio</div>
+  <div class="proj">
+    <select id="proj-select" aria-label="Project"></select>
+    <button id="proj-new" class="ghost">New set</button>
+    <button id="proj-del" class="ghost danger" title="Delete this set">Delete</button>
+  </div>
+</header>
+<nav class="tabs" id="tabs">
+  <button data-tab="idea" class="on"><i>1</i>Idea</button>
+  <button data-tab="model"><i>2</i>Model</button>
+  <button data-tab="book"><i>3</i>Instructions</button>
+  <button data-tab="buy"><i>4</i>Buy parts</button>
+  <button data-tab="pack"><i>5</i>Package</button>
+</nav>
+<main>
+  <!-- IDEA -->
+  <section class="tab" id="tab-idea">
+    <div class="grid2">
+      <div class="card">
+        <h2>The gift</h2>
+        <label>Set name<input id="f-name" placeholder="e.g. Grandma's Lake Cabin"></label>
+        <div class="row"><label>For<input id="f-recipient" placeholder="Recipient"></label><label>Occasion<input id="f-occasion" placeholder="Birthday, wedding…"></label></div>
+        <label>The idea<textarea id="f-idea" rows="4" placeholder="A cozy red cabin on a dock with a canoe, pine trees, and a fishing golden retriever"></textarea></label>
+        <div class="row">
+          <label>Style<select id="f-style"></select></label>
+          <label>Pieces<input id="f-pieces" type="number" min="20" step="10" value="150"></label>
+          <label>Images<select id="f-n"><option>1</option><option selected>2</option><option>3</option><option>4</option></select></label>
+        </div>
+        <div class="row end"><button id="gen" class="primary">Generate concepts</button></div>
+        <p class="hint" id="gen-status"></p>
+      </div>
+      <div class="card">
+        <h2>Image generator</h2>
+        <label>OpenAI API key<input id="f-key" type="password" placeholder="sk-…" autocomplete="off"></label>
+        <p class="hint">Kept only in this browser and sent only to api.openai.com.</p>
+        <div class="row"><label>Model<input id="f-imgmodel" value="gpt-image-1"></label><label>Quality<select id="f-quality"><option>low</option><option selected>medium</option><option>high</option></select></label></div>
+        <h2 class="mt">Design brief</h2>
+        <p class="hint">Copy this into the project thread and Claude will design the buildable LDraw model from your favourite concept.</p>
+        <button id="brief" class="ghost">Copy design brief</button>
+        <label class="mt">Notes for the box back<textarea id="f-notes" rows="3" placeholder="A short message for the recipient"></textarea></label>
+      </div>
+    </div>
+    <div id="concepts" class="concepts"></div>
+  </section>
+
+  <!-- MODEL -->
+  <section class="tab" id="tab-model" hidden>
+    <div class="grid2 wide-left">
+      <div class="card flush"><div id="viewer" class="viewer"><div class="empty">Load an LDraw model to see it here</div></div></div>
+      <div class="card">
+        <h2>Model file</h2>
+        <p class="hint">LDraw .ldr or .mpd with <code>0 STEP</code> lines. From BrickLink Studio use File → Export As → LDraw.</p>
+        <div class="row"><label class="file">Upload<input id="f-file" type="file" accept=".ldr,.mpd,.dat,.txt"></label><button id="sample" class="ghost">Load sample</button></div>
+        <details><summary>Paste LDraw text</summary><textarea id="f-ldraw" rows="8" spellcheck="false"></textarea><button id="apply-ldraw" class="ghost">Apply</button></details>
+        <div id="model-stats" class="stats"></div>
+        <div id="model-warn"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BOOKLET -->
+  <section class="tab" id="tab-book" hidden>
+    <div class="card toolbar">
+      <label>Page<select id="f-page"></select></label>
+      <label>Bags<input id="f-bags" type="number" min="1" max="20"></label>
+      <label>Set no.<input id="f-setno"></label>
+      <label>Ages<input id="f-ages"></label>
+      <label class="check"><input id="f-fade" type="checkbox">Fade earlier steps</label>
+      <button id="gen-book" class="primary">Build booklet</button>
+      <button id="print-book" class="ghost" disabled>Print / save PDF</button>
+      <span id="book-status" class="hint"></span>
+    </div>
+    <div id="book" class="pages"></div>
+  </section>
+
+  <!-- BUY -->
+  <section class="tab" id="tab-buy" hidden>
+    <div class="card toolbar">
+      <span id="buy-sum"></span>
+      <label class="check"><input id="f-spares" type="checkbox">Add spares for small parts</label>
+      <button id="dl-xml" class="primary">Download BrickLink Wanted List</button>
+      <button id="copy-xml" class="ghost">Copy XML</button>
+      <button id="dl-csv" class="ghost">Parts CSV</button>
+    </div>
+    <ol class="card steps-howto">
+      <li>Download the Wanted List XML above.</li>
+      <li>On BrickLink open <a href="https://www.bricklink.com/v2/wanted/upload.page" target="_blank" rel="noopener">Wanted List → Upload</a>, paste or upload it into a new list named after this set.</li>
+      <li>Open the list and press <b>Buy All</b> (Easy Buy) to find the fewest shops that cover everything. Check any red rows below first.</li>
+    </ol>
+    <div class="card flush"><table class="parts"><thead><tr><th></th><th>Part</th><th>Colour</th><th>Qty</th><th>Buy</th><th>BrickLink ID</th><th></th></tr></thead><tbody id="parts-body"></tbody></table></div>
+  </section>
+
+  <!-- PACKAGE -->
+  <section class="tab" id="tab-pack" hidden>
+    <div class="card toolbar">
+      <label>Page<select id="f-packpage"></select></label>
+      <button id="gen-pack" class="primary">Build packaging</button>
+      <button id="print-pack" class="ghost" disabled>Print / save PDF</button>
+      <span id="pack-status" class="hint"></span>
+    </div>
+    <div class="card"><h2>Packing checklist</h2><ol class="checklist">
+      <li>Sort parts into numbered bags using the bag labels (each label pictures its parts).</li>
+      <li>Print the booklet double-sided, short-edge flip, and staple or saddle-stitch it.</li>
+      <li>Print the box front and back, glue to a plain box (or a sleeve) sized to the page.</li>
+      <li>Add the booklet, the bags, and a spare-parts bag. Seal and wrap.</li>
+    </ol></div>
+    <div id="pack" class="pages"></div>
+  </section>
+</main>
+<div id="toast" class="toast" hidden></div>
+<script type="module" src="/src/main.js"></script>
+</body>
+</html>
