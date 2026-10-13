@@ -19,6 +19,8 @@ async function call(path, key, body, isForm) {
     body: isForm ? body : JSON.stringify(body),
   });
   const j = await r.json().catch(() => ({}));
+  if (r.status === 401) throw new Error('OpenAI rejected the API key. Check it under Image generator.');
+  if (r.status === 429) throw new Error('OpenAI rate limit or quota reached. Wait a minute or check your billing.');
   if (!r.ok) throw new Error(j.error?.message || `Image API error ${r.status}`);
   return j.data.map((d) => d.b64_json ? 'data:image/png;base64,' + d.b64_json : d.url);
 }

@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>BrickGift Studio</title>
+<meta name="description" content="Design custom LEGO gift sets: concept art, a buildable model, printable instructions, a BrickLink parts list and packaging.">
+<meta name="theme-color" content="#e3000b">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect x='2' y='10' width='28' height='18' rx='3' fill='%23e3000b'/><rect x='7' y='5' width='7' height='6' rx='2' fill='%23e3000b'/><rect x='18' y='5' width='7' height='6' rx='2' fill='%23e3000b'/></svg>">
 <link rel="stylesheet" href="/src/style.css">
 <style id="page-css"></style>
@@ -14,6 +16,8 @@
   <div class="proj">
     <select id="proj-select" aria-label="Project"></select>
     <button id="proj-new" class="ghost">New set</button>
+    <button id="proj-export" class="ghost" title="Download a backup of this set">Back up</button>
+    <label class="ghost btnlike" title="Restore a set from a backup file">Restore<input id="proj-import" type="file" accept=".json,application/json" hidden></label>
     <button id="proj-del" class="ghost danger" title="Delete this set">Delete</button>
   </div>
 </header>
@@ -36,20 +40,28 @@
         <div class="row">
           <label>Style<select id="f-style"></select></label>
           <label>Pieces<input id="f-pieces" type="number" min="20" step="10" value="150"></label>
-          <label>Images<select id="f-n"><option>1</option><option selected>2</option><option>3</option><option>4</option></select></label>
         </div>
-        <div class="row end"><button id="gen" class="primary">Generate concepts</button></div>
-        <p class="hint" id="gen-status"></p>
+        <label class="mt">Notes for the box back<textarea id="f-notes" rows="3" placeholder="A short message for the recipient"></textarea></label>
       </div>
       <div class="card">
-        <h2>Image generator</h2>
-        <label>OpenAI API key<input id="f-key" type="password" placeholder="sk-…" autocomplete="off"></label>
-        <p class="hint">Kept only in this browser and sent only to api.openai.com.</p>
-        <div class="row"><label>Model<input id="f-imgmodel" value="gpt-image-1"></label><label>Quality<select id="f-quality"><option>low</option><option selected>medium</option><option>high</option></select></label></div>
+        <h2>Concept art</h2>
+        <p class="hint">Use any image AI you already have. No API key needed.</p>
+        <ol class="howto">
+          <li><button id="copy-prompt" class="primary">Copy image prompt</button></li>
+          <li>Paste it into <a href="https://chatgpt.com/" target="_blank" rel="noopener">ChatGPT</a>, <a href="https://gemini.google.com/" target="_blank" rel="noopener">Gemini</a> or another image tool.</li>
+          <li>Bring the picture back: <label class="btnlike">Upload image<input id="f-img" type="file" accept="image/*" multiple hidden></label> or paste it here with Ctrl/⌘ V.</li>
+        </ol>
+        <div id="dropzone" class="dropzone">Drop concept images here</div>
+        <p class="hint" id="gen-status"></p>
+        <details class="mt"><summary>Generate here with your own OpenAI key (optional)</summary>
+          <label>OpenAI API key<input id="f-key" type="password" placeholder="sk-…" autocomplete="off"></label>
+          <p class="hint">Kept only in this browser and sent only to api.openai.com.</p>
+          <div class="row"><label>Model<input id="f-imgmodel" value="gpt-image-1"></label><label>Quality<select id="f-quality"><option>low</option><option selected>medium</option><option>high</option></select></label><label>Images<select id="f-n"><option>1</option><option selected>2</option><option>3</option><option>4</option></select></label></div>
+          <div class="row end"><button id="gen" class="ghost">Generate concepts</button></div>
+        </details>
         <h2 class="mt">Design brief</h2>
-        <p class="hint">Copy this into the project thread and Claude will design the buildable LDraw model from your favourite concept.</p>
+        <p class="hint">Copy this into the project thread and Claude will design the buildable model from your favourite concept.</p>
         <button id="brief" class="ghost">Copy design brief</button>
-        <label class="mt">Notes for the box back<textarea id="f-notes" rows="3" placeholder="A short message for the recipient"></textarea></label>
       </div>
     </div>
     <div id="concepts" class="concepts"></div>
@@ -58,7 +70,7 @@
   <!-- MODEL -->
   <section class="tab" id="tab-model" hidden>
     <div class="grid2 wide-left">
-      <div class="card flush"><div id="viewer" class="viewer"><div class="empty">Load an LDraw model to see it here</div></div>
+      <div class="card flush"><div id="viewer" class="viewer"><div class="empty" id="viewer-msg">Load an LDraw model to see it here</div></div>
         <div class="builder" id="builder" hidden>
           <button id="b-play" class="ghost">▶ Play</button>
           <button id="b-back" class="ghost" aria-label="Remove last piece">−1</button>

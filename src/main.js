@@ -3,7 +3,8 @@ import { parseLDraw, loadColors, partDescription, splitBags } from './ldraw.js';
 import { makeLoader, Viewer, Snapshotter, buildPieces } from './render.js';
 import { STYLES, buildPrompt, generate, refine } from './imagegen.js';
 import { wantedRows, wantedXML, partsCSV, blLink, BL_COLOR } from './bricklink.js';
-import { PAGE_SIZES, pageCSS, buildBooklet, buildPackaging } from './print.js';
+import { PAGE_SIZES, pageCSS } from './pages.js';
+const printing = () => import('./print.js');
 
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
@@ -13,6 +14,8 @@ function toast(msg, ms = 2600) {
   const t = $('#toast'); t.textContent = msg; t.hidden = false;
   clearTimeout(toast.t); toast.t = setTimeout(() => (t.hidden = true), ms);
 }
+window.addEventListener('error', (e) => toast('Something went wrong: ' + (e.message || 'unknown error'), 5000));
+window.addEventListener('unhandledrejection', (e) => { if (e.reason?.message !== 'no key') toast('Something went wrong: ' + (e.reason?.message || e.reason), 5000); });
 let saveT;
 const save = () => { clearTimeout(saveT); saveT = setTimeout(() => saveProject(S.project).then(refreshPicker), 300); };
 const download = (name, text, type = 'text/plain') => {
@@ -45,6 +48,22 @@ $('#proj-del').onclick = async () => {
   await deleteProject(S.project.id);
   const ps = await listProjects();
   openProject(ps[0] || (await (async () => { const p = newProject(); await saveProject(p); return p; })()));
+};
+
+$('#proj-export').onclick = () => download(slug(S.project.name) + '.brickgift.json', JSON.stringify({ brickgift: 1, project: S.project }), 'application/json');
+$('#proj-import').onchange = async (e) => {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  try {
+    const data = JSON.parse(await f.text());
+    const p = data.project;
+    if (data.brickgift !== 1 || !p?.id || !Array.isArray(p.concepts)) throw new Error('not a BrickGift backup');
+    const exists = (await listProjects()).some((x) => x.id === p.id);
+    if (exists && !confirm(`Replace your current copy of "${p.name}" with this backup?`)) return;
+    await saveProject(p);
+    openProject(p);
+    toast(`Restored "${p.name}"`);
+  } catch (err) { toast('Could not restore: ' + err.message, 5000); }
 };
 
 // ---------- tabs ----------
@@ -84,7 +103,7 @@ $('#f-quality').onchange = (e) => setSetting('quality', e.target.value);
 // ---------- ideas ----------
 function imgOpts() {
   const key = $('#f-key').value.trim();
-  if (!key) { toast('Add your OpenAI API key first'); $('#f-key').focus(); throw new Error('no key'); }
+  if (!key) { toast('Add your OpenAI API key first, or use Copy image prompt instead'); $('#f-key').focus(); throw new Error('no key'); }
   return { key, model: $('#f-imgmodel').value.trim() || 'gpt-image-1', quality: $('#f-quality').value };
 }
 async function runGen(label, fn) {
@@ -118,7 +137,7 @@ function renderConcepts() {
         <button data-act="dl" class="ghost">Download</button>
         <button data-act="del" class="ghost danger">Remove</button>
       </div>
-    </figure>`).join('') : '<p class="hint center">Concept renders appear here.</p>';
+    </figure>`).join('') : '<p class="hint center">Your concept images appear here.</p>';
 }
 $('#concepts').onclick = async (e) => {
   const b = e.target.closest('button'); if (!b) return;
@@ -130,14 +149,65 @@ $('#concepts').onclick = async (e) => {
   if (b.dataset.act === 'refine') {
     const ask = prompt('What should change?', 'Make it more colourful and add a small tree');
     if (!ask) return;
-    const opts = imgOpts();
     const full = `Keep this custom LEGO set design but: ${ask}. Keep it realistic and buildable from real LEGO bricks.`;
+    if (!$('#f-key').value.trim()) {
+      copyText(full, 'Refine prompt copied. Paste it into your image tool along with this image, then bring the new one back.');
+      return;
+    }
+    const opts = imgOpts();
     const imgs = await runGen('Refining concept…', () => refine({ ...opts, prompt: full, image: c.image, n: 2 }));
     p.concepts.unshift(...imgs.map((image) => ({ id: uid(), image, prompt: full, idea: c.idea, refine: ask, at: Date.now() })));
     $('#gen-status').textContent = '';
   }
   save(); renderConcepts();
 };
+// Bring-your-own concept images: copy a prompt, generate anywhere, paste or upload the result.
+async function copyText(text, ok) {
+  try { await navigator.clipboard.writeText(text); toast(ok); } catch { prompt('Copy this:', text); }
+}
+$('#copy-prompt').onclick = () => {
+  const p = S.project;
+  if (!p.idea?.trim()) { toast('Describe the idea first'); $('#f-idea').focus(); return; }
+  copyText(buildPrompt(p.style, p.idea, p.pieces), 'Prompt copied. Paste it into your image tool.');
+};
+function shrink(file, max = 1600) {
+  return new Promise((res, rej) => {
+    const img = new Image();
+    img.onload = () => {
+      const k = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(img.src);
+      res(c.toDataURL('image/jpeg', 0.88));
+    };
+    img.onerror = () => rej(new Error('That file is not an image this browser can read'));
+    img.src = URL.createObjectURL(file);
+  });
+}
+async function addImages(files) {
+  const imgs = [...files].filter((f) => f.type.startsWith('image/'));
+  if (!imgs.length || !S.project) return;
+  const p = S.project;
+  for (const f of imgs) {
+    try { p.concepts.unshift({ id: uid(), image: await shrink(f), prompt: buildPrompt(p.style, p.idea || '', p.pieces), idea: p.idea || f.name, at: Date.now(), source: 'upload' }); }
+    catch (e) { toast(e.message, 4000); }
+  }
+  p.coverConcept ||= p.concepts[0]?.id || null;
+  save(); renderConcepts();
+  toast(imgs.length === 1 ? 'Concept added' : `${imgs.length} concepts added`);
+}
+$('#f-img').onchange = (e) => { addImages(e.target.files); e.target.value = ''; };
+document.addEventListener('paste', (e) => {
+  if ($('#tab-idea').hidden) return;
+  const files = [...(e.clipboardData?.files || [])];
+  if (files.length) { e.preventDefault(); addImages(files); }
+});
+const dz = $('#dropzone');
+for (const t of ['dragenter', 'dragover']) dz.addEventListener(t, (e) => { e.preventDefault(); dz.classList.add('over'); });
+for (const t of ['dragleave', 'drop']) dz.addEventListener(t, () => dz.classList.remove('over'));
+dz.addEventListener('drop', (e) => { e.preventDefault(); addImages(e.dataTransfer.files); });
+
 $('#brief').onclick = async () => {
   const p = S.project;
   const cover = p.concepts.find((c) => c.id === p.coverConcept);
@@ -145,7 +215,7 @@ $('#brief').onclick = async () => {
     `Idea: ${p.idea || '(none yet)'}`, `Target size: about ${p.pieces || 150} pieces, ${p.bags || 2} bags`,
     cover ? `Chosen concept: ${cover.refine || cover.idea} (image attached separately)` : 'No concept chosen yet',
     'Please design it as an LDraw .mpd with 0 STEP lines, common in-production parts, and colours available on BrickLink.'].filter(Boolean).join('\n');
-  await navigator.clipboard.writeText(text).then(() => toast('Brief copied. Paste it in the project thread.'), () => prompt('Copy this brief:', text));
+  copyText(text, 'Brief copied. Paste it in the project thread.');
 };
 
 // ---------- model ----------
@@ -163,7 +233,8 @@ async function loadModel(text, name, persist = true) {
   S.loader = await makeLoader();
   S.snap = new Snapshotter(S.loader, m);
   S.viewer ||= new Viewer($('#viewer'));
-  $('#viewer .empty')?.remove();
+  const msg = $('#viewer-msg');
+  if (msg) { msg.hidden = false; msg.textContent = 'Loading 3D parts…'; }
   $('#builder').hidden = true;
   buildPieces(S.loader, m).then(({ root, pieces }) => {
     if (S.model !== m) return;
@@ -172,7 +243,8 @@ async function loadModel(text, name, persist = true) {
     $('#b-slider').max = pieces.length;
     setBuilt(pieces.length);
     $('#builder').hidden = false;
-  }).catch((e) => toast('3D view failed: ' + e.message));
+    if (msg) msg.hidden = true;
+  }).catch((e) => { if (msg) msg.textContent = 'Could not draw the model: ' + e.message; });
   const descs = await Promise.all(m.inventory.map(async (p) => (p.desc = await partDescription(p.id))));
   const missing = m.inventory.filter((p, i) => !descs[i]);
   const noColor = m.inventory.filter((p) => BL_COLOR[p.color] === undefined);
@@ -218,6 +290,7 @@ $('#gen-book').onclick = async () => {
   const btn = $('#gen-book'); btn.disabled = true;
   setPageCSS(S.project.pageSize);
   try {
+    const { buildBooklet } = await printing();
     const { html, bags } = await buildBooklet({ project: S.project, model: S.model, snap: S.snap, colors: S.colors, onProgress: (m) => ($('#book-status').textContent = m + '…') });
     S.bags = bags;
     $('#book').innerHTML = html;
@@ -232,6 +305,7 @@ $('#gen-pack').onclick = async () => {
   $('#pack-status').textContent = 'Rendering…';
   try {
     S.bags ||= splitBags(S.model.seq, Math.max(1, S.project.bags | 0));
+    const { buildPackaging } = await printing();
     $('#pack').innerHTML = await buildPackaging({ project: S.project, model: S.model, snap: S.snap, colors: S.colors, bags: S.bags });
     $('#pack-status').textContent = '';
     $('#print-pack').disabled = false;
@@ -284,7 +358,9 @@ $('#dl-csv').onclick = () => needModel() && download(slug(S.project.name) + '-pa
 
 // ---------- boot ----------
 (async () => {
-  S.colors = await loadColors().catch(() => new Map());
+  // Colours only matter for the parts table; don't hold up opening the project for them.
+  loadColors().then((c) => { S.colors = c; if (!$('#tab-buy').hidden) renderParts(); })
+    .catch(() => toast('Could not reach the LDraw parts library. Check your internet connection.', 6000));
   const ps = await listProjects();
   let p = ps.find((x) => x.id === getSetting('last')) || ps[0];
   if (!p) { p = newProject(); await saveProject(p); }

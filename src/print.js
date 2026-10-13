@@ -1,15 +1,8 @@
 // Printable outputs: instruction booklet and packaging, rendered as HTML pages for print-to-PDF.
 import { callout, splitBags, partDescription } from './ldraw.js';
+import { PAGE_SIZES } from './pages.js';
 
-export const PAGE_SIZES = {
-  'A5 landscape': [210, 148], 'Half letter landscape': [216, 140], 'A4 portrait': [210, 297], 'Letter portrait': [216, 279], 'A4 landscape': [297, 210],
-};
 const esc = (s) => String(s ?? '').replace(/[<>&"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' }[c]));
-
-export function pageCSS(size) {
-  const [w, h] = PAGE_SIZES[size] || PAGE_SIZES['A5 landscape'];
-  return `@page{size:${w}mm ${h}mm;margin:0}.pg{width:${w}mm;height:${h}mm}`;
-}
 
 function swatch(colors, c) { return colors.get(c)?.hex || '#ccc'; }
 

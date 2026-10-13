@@ -41,6 +41,7 @@ export function parseLDraw(text, mainName = 'model.ldr') {
   for (const f of order) for (const s of f.steps) for (const it of s) it.sub = files.has(it.key);
 
   const main = order[0];
+  if (!main.steps.length) throw new Error('No parts found. Check that this is an LDraw .ldr or .mpd file.');
   return { files, order, main, text, ...analyze(files, main) };
 }
 
