@@ -175,7 +175,10 @@ async function loadModel(text, name, persist = true) {
 }
 $('#f-file').onchange = async (e) => { const f = e.target.files[0]; if (f) loadModel(await f.text(), f.name); };
 $('#apply-ldraw').onclick = () => loadModel($('#f-ldraw').value, S.project.ldrawName || 'model.ldr');
-$('#sample').onclick = async () => loadModel(await (await fetch(import.meta.env.BASE_URL + 'samples/gift-box.mpd')).text(), 'gift-box.mpd');
+$('#sample').onchange = async (e) => {
+  const f = e.target.value; e.target.value = '';
+  if (f) loadModel(await (await fetch(import.meta.env.BASE_URL + 'samples/' + f)).text(), f);
+};
 
 // ---------- booklet & packaging ----------
 function needModel() { if (!S.model || !S.snap) { toast('Load a model on the Model tab first'); return false; } return true; }

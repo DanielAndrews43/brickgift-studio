@@ -62,7 +62,7 @@
       <div class="card">
         <h2>Model file</h2>
         <p class="hint">LDraw .ldr or .mpd with <code>0 STEP</code> lines. From BrickLink Studio use File → Export As → LDraw.</p>
-        <div class="row"><label class="file">Upload<input id="f-file" type="file" accept=".ldr,.mpd,.dat,.txt"></label><button id="sample" class="ghost">Load sample</button></div>
+        <div class="row"><label class="file">Upload<input id="f-file" type="file" accept=".ldr,.mpd,.dat,.txt"></label><select id="sample" aria-label="Load sample"><option value="">Load sample…</option><option value="riding-paddock.mpd">Tess's Riding Paddock</option><option value="gift-box.mpd">Gift Box</option></select></div>
         <details><summary>Paste LDraw text</summary><textarea id="f-ldraw" rows="8" spellcheck="false"></textarea><button id="apply-ldraw" class="ghost">Apply</button></details>
         <div id="model-stats" class="stats"></div>
         <div id="model-warn"></div>
