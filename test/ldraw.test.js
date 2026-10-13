@@ -4,6 +4,7 @@ import { parseLDraw, callout, splitBags, modelText, partId } from '../src/ldraw.
 
 const paddock = fs.readFileSync(new URL('../public/samples/riding-paddock.mpd', import.meta.url), 'utf8');
 const giftBox = fs.readFileSync(new URL('../public/samples/gift-box.mpd', import.meta.url), 'utf8');
+const slide = fs.readFileSync(new URL('../public/samples/playground-slide.mpd', import.meta.url), 'utf8');
 
 describe('parseLDraw', () => {
   it('reads a single-file .ldr with steps', () => {
@@ -40,6 +41,10 @@ describe('parseLDraw', () => {
     expect(p.seq).toHaveLength(17);
     const g = parseLDraw(giftBox);
     expect(g.pieceCount).toBe(50);
+    const s = parseLDraw(slide);
+    expect(s.main.title).toBe('Playground Slide');
+    expect(s.pieceCount).toBe(134);
+    expect(s.seq).toHaveLength(23);
   });
 
   it('rejects empty input', () => {

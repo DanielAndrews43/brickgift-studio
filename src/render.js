@@ -67,7 +67,7 @@ export class Viewer {
     const tick = (now) => {
       if (!this.el.isConnected) return;
       if (this.drop) {
-        const k = Math.min(1, (now - this.drop.t0) / 280);
+        const k = Math.min(1, (now - this.drop.t0) / (this.dropMs || 280));
         this.drop.obj.position.y = -(1 - k) * (1 - k) * 60; // LDraw space: -y is up
         if (k >= 1) { this.drop.obj.position.y = 0; this.drop = null; }
       }

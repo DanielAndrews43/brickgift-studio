@@ -220,6 +220,7 @@ $('#brief').onclick = async () => {
 
 // ---------- model ----------
 async function loadModel(text, name, persist = true) {
+  stopPlay();
   S.model = null; S.snap?.dispose(); S.snap = null; S.bags = null;
   $('#f-ldraw').value = text || '';
   if (!text?.trim()) { $('#model-stats').innerHTML = ''; $('#model-warn').innerHTML = ''; return; }
@@ -254,7 +255,7 @@ async function loadModel(text, name, persist = true) {
   if (!$('#tab-buy').hidden) renderParts();
 }
 // ---------- piece-by-piece builder ----------
-let built = 0, playT = null;
+let built = 0, playT = null, rec = null;
 function setBuilt(n, animate = false) {
   const ps = S.pieces || [];
   n = Math.max(0, Math.min(ps.length, n));
@@ -264,7 +265,15 @@ function setBuilt(n, animate = false) {
   const st = n ? ps[n - 1].step : null;
   $('#b-count').textContent = `${n} of ${ps.length} pieces` + (st ? ` · step ${st.n}` + (st.file !== S.model.main ? ` (${st.file.title})` : '') : '');
 }
-function stopPlay() { clearInterval(playT); playT = null; $('#b-play').textContent = '▶ Play'; }
+const stepMs = () => 450 / +$('#b-speed').value;
+function startPlay() {
+  S.viewer.dropMs = Math.min(280, stepMs() * 0.8);
+  playT = setInterval(() => (built >= S.pieces.length ? stopPlay() : setBuilt(built + 1, true)), stepMs());
+}
+function stopPlay() {
+  clearInterval(playT); playT = null; $('#b-play').textContent = '▶ Play';
+  if (rec?.state === 'recording') { const r = rec; setTimeout(() => r.stop(), 700); } // hold the finished model for a moment
+}
 $('#b-slider').oninput = (e) => setBuilt(+e.target.value, true);
 $('#b-fwd').onclick = () => setBuilt(built + 1, true);
 $('#b-back').onclick = () => setBuilt(built - 1);
@@ -272,7 +281,28 @@ $('#b-play').onclick = () => {
   if (playT) return stopPlay();
   if (built >= S.pieces.length) setBuilt(0);
   $('#b-play').textContent = '❚❚ Pause';
-  playT = setInterval(() => (built >= S.pieces.length ? stopPlay() : setBuilt(built + 1, true)), 450);
+  startPlay();
+};
+$('#b-speed').onchange = () => { if (playT) { clearInterval(playT); startPlay(); } };
+
+// Records the build animation from the viewer canvas and downloads it as a video.
+$('#b-video').onclick = () => {
+  if (rec) return stopPlay();
+  const type = ['video/mp4', 'video/webm'].find((t) => window.MediaRecorder?.isTypeSupported(t));
+  if (!type) return toast('This browser cannot record video');
+  stopPlay(); setBuilt(0);
+  const chunks = [];
+  rec = new MediaRecorder(S.viewer.renderer.domElement.captureStream(30), { mimeType: type, videoBitsPerSecond: 8e6 });
+  rec.ondataavailable = (e) => chunks.push(e.data);
+  rec.onstop = () => {
+    rec = null; $('#b-video').textContent = '⬇ Video';
+    download(slug(S.project.name) + '-build.' + type.split('/')[1], new Blob(chunks, { type }), type);
+    toast('Build video downloaded');
+  };
+  rec.start();
+  $('#b-video').textContent = '■ Stop';
+  $('#b-play').textContent = '❚❚ Pause';
+  startPlay();
 };
 
 $('#f-file').onchange = async (e) => { const f = e.target.files[0]; if (f) loadModel(await f.text(), f.name); };

@@ -76,12 +76,14 @@
           <button id="b-back" class="ghost" aria-label="Remove last piece">−1</button>
           <input id="b-slider" type="range" min="0" max="0" value="0" aria-label="Pieces placed">
           <button id="b-fwd" class="ghost" aria-label="Add next piece">+1</button>
+          <select id="b-speed" aria-label="Playback speed"><option value="0.5">0.5×</option><option value="1" selected>1×</option><option value="2">2×</option><option value="4">4×</option><option value="8">8×</option></select>
+          <button id="b-video" class="ghost">⬇ Video</button>
           <span id="b-count" class="b-count"></span>
         </div></div>
       <div class="card">
         <h2>Model file</h2>
         <p class="hint">LDraw .ldr or .mpd with <code>0 STEP</code> lines. From BrickLink Studio use File → Export As → LDraw.</p>
-        <div class="row"><label class="file">Upload<input id="f-file" type="file" accept=".ldr,.mpd,.dat,.txt"></label><select id="sample" aria-label="Load sample"><option value="">Load sample…</option><option value="riding-paddock.mpd">Tess's Riding Paddock</option><option value="gift-box.mpd">Gift Box</option></select></div>
+        <div class="row"><label class="file">Upload<input id="f-file" type="file" accept=".ldr,.mpd,.dat,.txt"></label><select id="sample" aria-label="Load sample"><option value="">Load sample…</option><option value="riding-paddock.mpd">Tess's Riding Paddock</option><option value="gift-box.mpd">Gift Box</option><option value="playground-slide.mpd">Playground Slide</option></select></div>
         <details><summary>Paste LDraw text</summary><textarea id="f-ldraw" rows="8" spellcheck="false"></textarea><button id="apply-ldraw" class="ghost">Apply</button></details>
         <div id="model-stats" class="stats"></div>
         <div id="model-warn"></div>

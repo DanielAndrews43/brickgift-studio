@@ -73,6 +73,7 @@ body.busy #gen{opacity:.6;pointer-events:none}
 .viewer .empty{position:absolute;inset:0;display:grid;place-items:center;color:#98a2b3}
 .builder{display:flex;gap:8px;align-items:center;padding:10px 12px;border-top:1px solid var(--line);flex-wrap:wrap}
 .builder input{flex:1;min-width:120px;accent-color:var(--red);padding:0;border:0}
+.builder select{width:auto;padding:6px 8px}
 .b-count{font-size:13px;color:var(--muted);font-variant-numeric:tabular-nums;min-width:170px}
 .file{display:inline-flex;align-items:center;padding:8px 14px;border-radius:8px;background:var(--red);color:#fff;font-weight:600;cursor:pointer;margin:0}
 .file input{display:none}
