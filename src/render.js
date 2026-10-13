@@ -64,8 +64,16 @@ export class Viewer {
     this.controls.enableDamping = true;
     new ResizeObserver(() => this.resize()).observe(el);
     this.resize();
-    const tick = () => { if (!this.el.isConnected) return; this.controls.update(); this.renderer.render(this.scene, this.camera); requestAnimationFrame(tick); };
-    tick();
+    const tick = (now) => {
+      if (!this.el.isConnected) return;
+      if (this.drop) {
+        const k = Math.min(1, (now - this.drop.t0) / 280);
+        this.drop.obj.position.y = -(1 - k) * (1 - k) * 60; // LDraw space: -y is up
+        if (k >= 1) { this.drop.obj.position.y = 0; this.drop = null; }
+      }
+      this.controls.update(); this.renderer.render(this.scene, this.camera); requestAnimationFrame(tick);
+    };
+    tick(performance.now());
   }
   resize() {
     const w = this.el.clientWidth || 600, h = this.el.clientHeight || 400;
@@ -79,6 +87,11 @@ export class Viewer {
     this.scene.add(group);
     const c = frame(this.camera, new THREE.Box3().setFromObject(group));
     this.controls.target.copy(c);
+  }
+  // Show the first n pieces; the newest one drops into place when animate is set.
+  setShown(pieces, n, animate) {
+    pieces.forEach((p, i) => { p.holder.visible = i < n; p.holder.position.set(0, 0, 0); });
+    this.drop = animate && n > 0 && !matchMedia('(prefers-reduced-motion: reduce)').matches ? { obj: pieces[n - 1].holder, t0: performance.now() } : null;
   }
 }
 
@@ -149,4 +162,43 @@ export class Snapshotter {
     return this.shot(root, w, h);
   }
   dispose() { this.renderer.dispose(); }
+}
+
+// Every piece of the model as its own object, in booklet order, for the piece-by-piece builder.
+const ldMatrix = (m) => new THREE.Matrix4().set(m[3], m[4], m[5], m[0], m[6], m[7], m[8], m[1], m[9], m[10], m[11], m[2], 0, 0, 0, 1);
+export async function buildPieces(loader, model) {
+  const placed = new Map();
+  const placementsOf = (f) => {
+    if (f === model.main) return [{ m: new THREE.Matrix4(), c: 16 }];
+    if (!placed.has(f.key)) {
+      const res = [];
+      for (const parent of model.order) for (const s of parent.steps) for (const it of s) if (it.sub && it.key === f.key)
+        for (const p of placementsOf(parent)) res.push({ m: p.m.clone().multiply(ldMatrix(it.m)), c: it.color === 16 ? p.c : it.color });
+      placed.set(f.key, res);
+    }
+    return placed.get(f.key);
+  };
+  const inst = [];
+  for (const st of model.seq) for (const it of st.items) {
+    if (it.sub) continue;
+    for (const p of placementsOf(st.file)) inst.push({ ref: it.ref, c: it.color === 16 ? p.c : it.color, m: p.m.clone().multiply(ldMatrix(it.m)), step: st });
+  }
+  const protos = new Map();
+  await Promise.all([...new Set(inst.map((i) => i.ref + '|' + i.c))].map(async (k) => {
+    const [ref, c] = k.split('|');
+    protos.set(k, await new Promise((res, rej) => loader.parse(`1 ${c} 0 0 0 1 0 0 0 1 0 0 0 1 ${ref}`, res, rej)));
+  }));
+  const root = new THREE.Group();
+  root.rotation.x = Math.PI;
+  const pieces = inst.map((i) => {
+    const holder = new THREE.Group();
+    const g = protos.get(i.ref + '|' + i.c).clone();
+    g.matrixAutoUpdate = false;
+    g.matrix.copy(i.m);
+    holder.add(g);
+    root.add(holder);
+    return { holder, step: i.step };
+  });
+  root.updateMatrixWorld(true);
+  return { root, pieces };
 }

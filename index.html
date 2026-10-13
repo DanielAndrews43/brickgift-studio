@@ -58,7 +58,14 @@
   <!-- MODEL -->
   <section class="tab" id="tab-model" hidden>
     <div class="grid2 wide-left">
-      <div class="card flush"><div id="viewer" class="viewer"><div class="empty">Load an LDraw model to see it here</div></div></div>
+      <div class="card flush"><div id="viewer" class="viewer"><div class="empty">Load an LDraw model to see it here</div></div>
+        <div class="builder" id="builder" hidden>
+          <button id="b-play" class="ghost">▶ Play</button>
+          <button id="b-back" class="ghost" aria-label="Remove last piece">−1</button>
+          <input id="b-slider" type="range" min="0" max="0" value="0" aria-label="Pieces placed">
+          <button id="b-fwd" class="ghost" aria-label="Add next piece">+1</button>
+          <span id="b-count" class="b-count"></span>
+        </div></div>
       <div class="card">
         <h2>Model file</h2>
         <p class="hint">LDraw .ldr or .mpd with <code>0 STEP</code> lines. From BrickLink Studio use File → Export As → LDraw.</p>

@@ -1,6 +1,6 @@
 import { listProjects, loadProject, saveProject, deleteProject, newProject, uid, getSetting, setSetting } from './store.js';
 import { parseLDraw, loadColors, partDescription, splitBags } from './ldraw.js';
-import { makeLoader, parseAsync, Viewer, Snapshotter } from './render.js';
+import { makeLoader, Viewer, Snapshotter, buildPieces } from './render.js';
 import { STYLES, buildPrompt, generate, refine } from './imagegen.js';
 import { wantedRows, wantedXML, partsCSV, blLink, BL_COLOR } from './bricklink.js';
 import { PAGE_SIZES, pageCSS, buildBooklet, buildPackaging } from './print.js';
@@ -164,7 +164,15 @@ async function loadModel(text, name, persist = true) {
   S.snap = new Snapshotter(S.loader, m);
   S.viewer ||= new Viewer($('#viewer'));
   $('#viewer .empty')?.remove();
-  parseAsync(S.loader, text).then((g) => S.viewer.show(g)).catch((e) => toast('3D view failed: ' + e.message));
+  $('#builder').hidden = true;
+  buildPieces(S.loader, m).then(({ root, pieces }) => {
+    if (S.model !== m) return;
+    S.pieces = pieces;
+    S.viewer.show(root);
+    $('#b-slider').max = pieces.length;
+    setBuilt(pieces.length);
+    $('#builder').hidden = false;
+  }).catch((e) => toast('3D view failed: ' + e.message));
   const descs = await Promise.all(m.inventory.map(async (p) => (p.desc = await partDescription(p.id))));
   const missing = m.inventory.filter((p, i) => !descs[i]);
   const noColor = m.inventory.filter((p) => BL_COLOR[p.color] === undefined);
@@ -173,6 +181,28 @@ async function loadModel(text, name, persist = true) {
     (!missing.length && !noColor.length ? '<p class="ok">All parts and colours check out.</p>' : '');
   if (!$('#tab-buy').hidden) renderParts();
 }
+// ---------- piece-by-piece builder ----------
+let built = 0, playT = null;
+function setBuilt(n, animate = false) {
+  const ps = S.pieces || [];
+  n = Math.max(0, Math.min(ps.length, n));
+  S.viewer.setShown(ps, n, animate && n === built + 1);
+  built = n;
+  $('#b-slider').value = n;
+  const st = n ? ps[n - 1].step : null;
+  $('#b-count').textContent = `${n} of ${ps.length} pieces` + (st ? ` · step ${st.n}` + (st.file !== S.model.main ? ` (${st.file.title})` : '') : '');
+}
+function stopPlay() { clearInterval(playT); playT = null; $('#b-play').textContent = '▶ Play'; }
+$('#b-slider').oninput = (e) => setBuilt(+e.target.value, true);
+$('#b-fwd').onclick = () => setBuilt(built + 1, true);
+$('#b-back').onclick = () => setBuilt(built - 1);
+$('#b-play').onclick = () => {
+  if (playT) return stopPlay();
+  if (built >= S.pieces.length) setBuilt(0);
+  $('#b-play').textContent = '❚❚ Pause';
+  playT = setInterval(() => (built >= S.pieces.length ? stopPlay() : setBuilt(built + 1, true)), 450);
+};
+
 $('#f-file').onchange = async (e) => { const f = e.target.files[0]; if (f) loadModel(await f.text(), f.name); };
 $('#apply-ldraw').onclick = () => loadModel($('#f-ldraw').value, S.project.ldrawName || 'model.ldr');
 $('#sample').onchange = async (e) => {
