@@ -14,7 +14,7 @@ export const BL_COLOR = {
 
 // LDraw part ids whose BrickLink catalog id differs.
 export const BL_PART = {
-  '3794b': '15573', '6141': '4073', '3794a': '3794',
+  '3794b': '15573', '6141': '4073', '3794a': '3794', '4493c00': '4493c01', '3815c01': '970c00',
 };
 
 export const blPart = (id, overrides = {}) => overrides[id] || BL_PART[id] || id.replace(/\.dat$/, '');
